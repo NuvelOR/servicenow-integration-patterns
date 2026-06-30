@@ -8,17 +8,15 @@ Observability, service desks, and cloud platforms all eventually need to talk to
 
 Each article takes one integration and works through it the way an architect actually has to: what the default connector does, where it goes wrong, the CSDM-aligned target state, and the modelling decisions that make incidents route from the CMDB instead of a side table. Concepts are kept at the product level (CSDM, IRE, Service Graph Connector, OneAgent) so they transfer across platform versions — validate exact class names and behaviour against your own instance before implementing.
 
-## Articles
+## Topics
 
-### Observability → ServiceNow
-- [When Ephemeral Compute Meets a Static CMDB](observability/ephemeral-compute-vs-cmdb/) — why autoscaling workloads explode the CMDB through Dynatrace + the Service Graph Connector, and the abstraction-layer fix (model the scale set, not the instance).
-- *Service Graph Connector: a sync is not an integration* — class mapping, the coalesce-pre-empts-identification trap, and routing from the CMDB. *(in progress)*
+- [Observability → ServiceNow](observability/) — Dynatrace and peers into the CMDB: topology import, CI modelling, CSDM alignment, and problem-to-incident routing.
 
 ## Who this is for
 
 ServiceNow architects and admins, observability and platform engineers, and CMDB / CSDM governance owners wiring a third-party platform into ServiceNow.
 
-## Topics
+## Keywords
 
 `servicenow` · `cmdb` · `csdm` · `itsm` · `integration-patterns` · `observability` · `dynatrace` · `service-graph-connector` · `ire`
 
