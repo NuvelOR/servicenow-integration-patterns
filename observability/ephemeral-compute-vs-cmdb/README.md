@@ -115,6 +115,51 @@ The result: **one CI per workload instead of tens of thousands**. A clean `Servi
 
 ---
 
+## Where the CI comes from — and where the incident binds
+
+Keeping the CMDB clean is one decision. There's a second one underneath it that decides *how a Dynatrace problem ever lands on a CI*: **who sources the CI in the first place.**
+
+In a cloud estate you usually have two pipes that can populate ServiceNow, while Dynatrace monitors the workload regardless — one *through* Dynatrace, one straight from the cloud's own discovery:
+
+```mermaid
+flowchart LR
+    AZ["Azure compute"] --> DT["Dynatrace<br/>monitors + alerts"]
+    AZ -->|Pipe 1: through Dynatrace| SGC["Service Graph Connector"] --> CMDB[("ServiceNow CMDB")]
+    AZ -->|Pipe 2: cloud discovery| CMDB
+    DT -. raises problem .-> INC["Incident"]
+    INC -. binds to .-> CMDB
+```
+
+That leaves two ways to get the incident onto the right CI.
+
+### Way A — source the CI from Dynatrace
+
+Dynatrace is both the CI source (via the connector) and the alert source. When it raises a problem, the incident binds to the CI Dynatrace itself created — the alert already carries that entity's ID, so the join is automatic.
+
+| Pros | Cons |
+|---|---|
+| One pipe to build and run — same source for CI and alert | Dynatrace becomes a CMDB-population source, so you inherit every CI-explosion / filtering / class-mapping problem above |
+| Binding is free — no cross-source matching to maintain | CI provenance is *monitoring*, not authoritative inventory: only agent-instrumented resources ever become CIs |
+| Dynatrace's runtime topology (process/service chain) enriches the CMDB | Host-entity churn and retention windows leak into the CMDB unless you actively control them |
+| Strong when Dynatrace is the most complete picture of what's actually running | Collides with cloud discovery if that also runs — two sources, one CI, reconciliation conflicts |
+
+### Way B — source the CI from cloud discovery, match the alert
+
+Don't let Dynatrace populate the CMDB at all. The cloud's own discovery pipe owns the CI; Dynatrace is demoted to a pure signal source. When it alerts, you **match** the entity it's alerting on to the already-present cloud-sourced CI via a shared key (cloud resource ID, FQDN, hostname, IP) and bind the incident there.
+
+| Pros | Cons |
+|---|---|
+| Dynatrace stays out of the CMDB — the entire pollution problem above disappears for this path | You now own a **reliable match** at alert-time; a missed match is an unbound incident |
+| CI provenance is the authoritative cloud inventory — real resource IDs, full coverage, including resources Dynatrace never sees | Both systems must agree on a stable shared key; naming or identity drift breaks the join |
+| Clean separation of concerns: discovery owns identity and structure, Dynatrace owns runtime signal | Dynatrace's dependency topology no longer enriches the CMDB for free |
+| One source of CI truth → simpler reconciliation | The cloud CI must exist when the alert arrives, or the match fails |
+
+### Which one?
+
+It comes down to what you're optimising for: a **single pipe with automatic binding** (A), or **clean separation with the cloud as the CI authority** (B). Weigh it against the reliability of your correlation key, whether Dynatrace's topology earns its place in the CMDB, and how much un-instrumented cloud estate you need represented. Both land incidents on CIs — they just disagree on *who owns the CI*. Decide that first, and the rest follows.
+
+---
+
 ## If you can't change the cloud architecture
 
 Sometimes you don't own the Azure/AWS estate and scale sets aren't on the table. You can still defend the CMDB at the integration seam. Treat the import as a **contract** that decides what is allowed to persist:
