@@ -110,6 +110,20 @@ The result: **one CI per workload instead of tens of thousands**. A clean `Servi
 
 > **Necessary, but not sufficient.** Scale sets fix the *origin* — they treat ephemeral compute as a managed group instead of thousands of pets, giving you a stable object to model and real lifecycle control. Had the workload been a scale set from day one, most of this never starts. But scale sets alone **do not** keep the CMDB clean: OneAgent still runs on every instance, so Dynatrace still creates a host entity per instance, and the connector will still import each one **unless you also make the modelling decision** — persist the scale set, exclude the instances. Scale sets with naïve host import produce the *same* explosion, just with a parent. The complete fix is **both**: the grouping upstream **and** the admission rule downstream.
 
+### Scale set vs. spinning VMs up and down — the counter-intuitive part
+
+At the raw agent/entity level, **there is no difference**. Each scale-set instance still runs its own OneAgent and still becomes its own Host entity. 50 scale-set instances = 50 Host entities, exactly like 50 standalone VMs. The scale set does not reduce agent count or entity count — deployment-wise it looks identical to a fleet of ad-hoc VMs. That's precisely why it's "necessary but not sufficient."
+
+Where they diverge is **how the agent gets there** and **what metadata each host carries**:
+
+| | Scale set (VMSS / ASG / MIG) | Ad-hoc VMs |
+|---|---|---|
+| **Deployment** | OneAgent declared once — a scale-set extension or baked into the shared image. Azure guarantees every instance gets it, identically, at provision time. You *can't* have an instance without it. | Each install is its own act. Room for drift — a missing agent, a stale version, the wrong host group, a forgotten manual step. Coverage is best-effort, not structural. |
+| **Grouping metadata** | Every instance carries cloud metadata identifying it as a member of the same set (scale-set name, resource group, subscription). OneAgent stamps each Host entity with it, so Dynatrace knows the 50 churning hosts are **one logical group** — the handle for host groups, management zones, tags, aggregation. | No shared parent metadata. Dynatrace sees 50 unrelated hosts. Nothing signals they belong together — unless you hand-tag every one. |
+| **Anchor** | The set itself is a persistent object with predictable instance naming and scale-in/out as a first-class operation. The instances are cattle; **the set is the pet.** Dynatrace and the CMDB anchor on the set while instances churn beneath it. | Every VM is a pet with its own identity and lifecycle. Every spin-up is a brand-new unrelated host; every teardown an independently-stale entity. Nothing stable to anchor to. |
+
+The bottom line: to OneAgent, a scale set and a pile of ad-hoc VMs are the same — one agent, one Host entity per instance. What the scale set adds is a **shared metadata key that gives Dynatrace a stable grouping handle over the churn**. That handle is exactly what lets you push **one CI to the CMDB instead of thousands**. The scale set doesn't stop the entity churn — it gives you the identity to model *above* it. Which is the whole point of "necessary but not sufficient": the grouping buys you nothing downstream unless you also make the modelling decision to persist the set and drop the instances.
+
 ### How each platform supports this
 
 - **Dynatrace** still monitors every instance (you want that telemetry) — but it can **group** them into a stable picture using cloud metadata, **host groups**, **tags**, and process-group/service detection. You report and alert at the service/host-group level; the instance churn stays underneath, where it belongs.
