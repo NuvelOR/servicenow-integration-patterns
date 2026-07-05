@@ -63,6 +63,8 @@ The damage isn't just volume. It's:
 - **Broken ownership** — you can't assign, support, or report on a CI that lived for 40 minutes.
 - **Cost** — CMDB CI counts and downstream licensing scale with the noise, not the value.
 
+> **Why is OneAgent on every instance in the first place?** It rides the same automation that creates the instance — baked into the VM image, attached as an Azure scale-set extension, or run as a Kubernetes DaemonSet — so a new instance is monitored the moment it boots, with no separate deploy step. Monitoring scales at the speed of provisioning. That's the crux: the same frictionless automation that makes "observe everything, instantly" possible is exactly what mints a fresh Host entity for every ephemeral instance — and, left unchecked, a fresh CI.
+
 ---
 
 ## The real root cause
