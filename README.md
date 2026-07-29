@@ -6,7 +6,7 @@ Observability, service desks, and cloud platforms all eventually need to talk to
 
 ## Summary
 
-Each article takes one integration and works through it the way an architect actually has to: what the default connector does, where it goes wrong, the CSDM-aligned target state, and the modelling decisions that make incidents route from the CMDB instead of a side table. Concepts are kept at the product level (CSDM, IRE, Service Graph Connector, OneAgent) so they transfer across platform versions — validate exact class names and behaviour against your own instance before implementing.
+Each article takes one integration and works through it the way an architect actually has to: what the default connector does, where it goes wrong, the CSDM-aligned target state, and the modelling decisions that make incidents route from the CMDB instead of a side table — and, where the integration keeps hitting the same wall, the process-side model it has to land on. Concepts are kept at the product level (CSDM, IRE, Service Graph Connector, OneAgent) so they transfer across platform versions — validate exact class names and behaviour against your own instance before implementing.
 
 ## Topics
 
