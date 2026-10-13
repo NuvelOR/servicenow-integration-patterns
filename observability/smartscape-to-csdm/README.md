@@ -28,9 +28,13 @@ GitHub shows the HTML file itself as source; the link above renders it. The page
 
 Green field. One discovery source per class. A naming contract that holds on both sides. A two-host estate: the mechanisms scale by configuration, the evidence does not claim to.
 
+## Related
+
+[When Ephemeral Compute Meets a Static CMDB](../ephemeral-compute-vs-cmdb/): the admission step of the same argument. The CMDB stores intent and structure, not runtime state. This map is the order of work that makes the admission rule possible: model first in ServiceNow, shape the source in Dynatrace, then run the connector.
+
 ## Status
 
-Version 2.0. The event path is marked TBD. Insights are forthcoming; a date is not.
+Version 2.1. The event path is marked TBD. Insights are forthcoming; a date is not.
 
 ---
 

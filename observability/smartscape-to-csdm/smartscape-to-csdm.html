@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smartscape to CSDM</title>
-<meta name="version" content="2.0">
+<meta name="version" content="2.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -192,10 +192,11 @@ footer { color: var(--muted); font-size: 13px; max-width: 80ch; }
     <h2>Preconditions</h2>
     <div class="principles">
       <div class="principle"><div class="num">P0</div><h3>Out of the box, no platform code</h3><p>Every mechanism on the platform side is a documented platform feature: the detection rule's name template, the connector's Service map extended in IntegrationHub ETL, Dynamic CI Groups over CMDB groups, CI relationships. No business rule, no scheduled script, no custom table. The application contributes its key as resource attributes in its deployment configuration. Scripted alternatives were written, recorded and not used.</p></div>
-      <div class="principle"><div class="num">P1</div><h3>Green field</h3><p>The CMDB held nothing but the connector's own CIs and the hand-built CSDM v5 model. Every relationship above is the first one its CIs ever had. A CMDB already fed by several integrations starts with reconciliation and precedence, not with the bridge.</p></div>
-      <div class="principle"><div class="num">P2</div><h3>One source per class</h3><p>The connector is the only discovery source for hosts, processes and services, so IRE has nothing to arbitrate. Add a second source for the same classes and the identification rules, not the map, decide who wins.</p></div>
-      <div class="principle"><div class="num">P3</div><h3>The naming contract holds on both sides</h3><p>Service name <code>&lt;namespace&gt; &lt;service&gt; &lt;environment&gt;</code>, offering name <code>&lt;namespace&gt; &lt;environment&gt;</code>. A lookup that finds no row writes nothing and reports nothing; watching that silence is the operational cost.</p></div>
-      <div class="principle"><div class="num">P4</div><h3>Two hosts, three applications</h3><p>Small enough to read every row. The mechanisms scale by configuration; the evidence does not claim to.</p></div>
+      <div class="principle"><div class="num">P1</div><h3>Model first, then open the pipe</h3><p>The Business Application, the services and the offerings existed, and the naming contract was agreed on both sides, before the first run. The connector fills a frame; it does not propose one. Opened in the other order, the CMDB receives everything and the modelling becomes an investigation of what arrived, which does not scale past a few dozen services.</p></div>
+      <div class="principle"><div class="num">P2</div><h3>Green field</h3><p>The CMDB held nothing but the connector's own CIs and the hand-built CSDM v5 model. Every relationship above is the first one its CIs ever had. A CMDB already fed by several integrations starts with reconciliation and precedence, not with the bridge.</p></div>
+      <div class="principle"><div class="num">P3</div><h3>One source per class</h3><p>The connector is the only discovery source for hosts, processes and services, so IRE has nothing to arbitrate. Add a second source for the same classes and the identification rules, not the map, decide who wins.</p></div>
+      <div class="principle"><div class="num">P4</div><h3>The naming contract holds on both sides</h3><p>Service name <code>&lt;namespace&gt; &lt;service&gt; &lt;environment&gt;</code>, offering name <code>&lt;namespace&gt; &lt;environment&gt;</code>. A lookup that finds no row writes nothing and reports nothing; watching that silence is the operational cost.</p></div>
+      <div class="principle"><div class="num">P5</div><h3>Two hosts, three applications</h3><p>Small enough to read every row. The mechanisms scale by configuration; the evidence does not claim to.</p></div>
     </div>
   </section>
 
@@ -275,11 +276,16 @@ footer { color: var(--muted); font-size: 13px; max-width: 80ch; }
   </section>
 
   <section>
+    <h2>Related</h2>
+    <p class="thesis"><a href="https://github.com/NuvelOR/servicenow-integration-patterns/tree/main/observability/ephemeral-compute-vs-cmdb">When Ephemeral Compute Meets a Static CMDB</a>: the admission step of the same argument. The CMDB stores intent and structure, not runtime state; what is admitted is decided before the pipe opens. This page is the order of work that makes the admission rule possible: model first, shape the source, then run the connector.</p>
+  </section>
+
+  <section>
     <h2>Forthcoming</h2>
     <p class="thesis">This page grows with the proof of concept. Insights are forthcoming; a date is not.</p>
   </section>
 
-  <footer>Built from the connector's data source script and DQL, its Service ETL map as shipped and as extended, the import sets of its runs, and the CMDB exports of a proof of concept on a two-host estate: CIs, relationships, object sources, staging rows, Smartscape nodes and edges. Application, service and host names are substitutes. Version 2.0.<br>Concept and direction by Victor Andreev, developed in collaboration with Claude (Anthropic). Licensed CC BY 4.0.</footer>
+  <footer>Built from the connector's data source script and DQL, its Service ETL map as shipped and as extended, the import sets of its runs, and the CMDB exports of a proof of concept on a two-host estate: CIs, relationships, object sources, staging rows, Smartscape nodes and edges. Application, service and host names are substitutes. Version 2.1.<br>Concept and direction by Victor Andreev, developed in collaboration with Claude (Anthropic). Licensed CC BY 4.0.</footer>
 </div>
 
 <script>

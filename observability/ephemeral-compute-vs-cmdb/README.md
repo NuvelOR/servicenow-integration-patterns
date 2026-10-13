@@ -217,3 +217,9 @@ Ephemeral compute isn't a CMDB problem to absorb; it's a modelling decision to m
 *Written for the Dynatrace and ServiceNow practitioner communities. Product specifics (OneAgent host entities, the Service Graph Connector for Dynatrace, the Identification and Reconciliation Engine, and CSDM) are referenced at a conceptual level — validate exact class names, connector scoping options, and IRE behaviour against your platform versions before implementing.*
 
 *Concept and direction by Victor Andreev, developed in collaboration with Claude (Anthropic).*
+
+---
+
+## Related
+
+[Smartscape to CSDM](../smartscape-to-csdm/): the order of work that makes the admission rule possible, run end to end on a small estate. Model first in ServiceNow, shape the source in Dynatrace, then open the pipe; the connector fills a frame, it does not propose one.
