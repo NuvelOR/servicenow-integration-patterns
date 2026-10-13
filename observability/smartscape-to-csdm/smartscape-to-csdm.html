@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smartscape to CSDM</title>
+<meta name="version" content="2.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: schematic board on the left, edge panel on the right; view switch drives edge states. */
+:root {
+  --bg: #f3f4f1;
+  --board: #fbfbf8;
+  --ink: #1d2226;
+  --muted: #5f6a70;
+  --rule: #d5d9d4;
+  --faint: #c9ceca;
+  --node: #ffffff;
+  --node-edge: #9aa4a8;
+  --anchor: #1d2226;
+  --anchor-ink: #fbfbf8;
+  --skip: #c2412d;
+  --lens-classic: #3f5f8f;
+  --lens-saas: #0f7a6c;
+  --lens-bridge: #7a4fa0;
+  --lens-incident: #b56a00;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15191b; --board: #1b2023; --ink: #e6e9e6; --muted: #9ba7ab; --rule: #2f373b; --faint: #3a4448;
+    --node: #20272a; --node-edge: #56636a; --anchor: #e6e9e6; --anchor-ink: #15191b; --skip: #ef7a63;
+    --lens-classic: #86a6d6; --lens-saas: #4cc1ae; --lens-bridge: #b891dc; --lens-incident: #e5a13d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15191b; --board: #1b2023; --ink: #e6e9e6; --muted: #9ba7ab; --rule: #2f373b; --faint: #3a4448;
+  --node: #20272a; --node-edge: #56636a; --anchor: #e6e9e6; --anchor-ink: #15191b; --skip: #ef7a63;
+  --lens-classic: #86a6d6; --lens-saas: #4cc1ae; --lens-bridge: #b891dc; --lens-incident: #e5a13d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+/* The wrapper carries the page colours as well as body, for hosts that render the document inside their own container and drop the body rule (Obsidian HTML Reader). */
+.wrap { max-width: 1440px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 48px; display: grid; gap: 22px; background: var(--bg); color: var(--ink); font-family: var(--f-body); }
+header { display: grid; gap: 8px; max-width: 74ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.eyebrow .tag { color: var(--lens-saas); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); line-height: 1.1; margin: 0; text-wrap: balance; }
+.thesis { margin: 0; color: var(--ink); }
+.lenses { display: flex; flex-wrap: wrap; gap: 8px; }
+.lens { font: 600 14px var(--f-body); color: var(--ink); background: var(--board); border: 1px solid var(--rule); border-radius: 999px; padding: 7px 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.lens .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.lens[aria-pressed="true"] { background: var(--c); color: var(--board); border-color: var(--c); }
+.lens[aria-pressed="true"] .dot { background: var(--board); }
+.lens:focus-visible, .edge-hit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.toggle { font: 600 14px var(--f-body); display: inline-flex; align-items: center; gap: 8px; color: var(--muted); padding: 7px 4px; }
+.toggle input { accent-color: var(--skip); width: 16px; height: 16px; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 980px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.board { background: var(--board); border: 1px solid var(--rule); border-radius: 6px; overflow-x: auto; }
+.board svg { display: block; width: 100%; min-width: 820px; height: auto; }
+.panel { background: var(--board); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.panel h2 { font-family: var(--f-display); font-weight: 600; font-size: 19px; margin: 0; text-wrap: balance; }
+.panel .lensdesc { margin: 0; color: var(--muted); }
+.panel .rel { font-size: 14px; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 8px 10px; }
+.state { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--f-mono); letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; border: 1px solid currentColor; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px 20px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend svg { width: 34px; height: 10px; }
+section h2 { font-family: var(--f-display); font-weight: 600; font-size: 22px; margin: 0 0 10px; }
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.principle { background: var(--board); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.principle .num { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.principle h3 { font-family: var(--f-display); font-weight: 600; font-size: 16px; line-height: 1.25; margin: 0; text-wrap: balance; }
+.principle p { margin: 0; font-size: 14px; color: var(--muted); }
+.tablewrap { overflow-x: auto; background: var(--board); border: 1px solid var(--rule); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--f-mono); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+.hot { color: var(--skip); font-weight: 600; }
+footer { color: var(--muted); font-size: 13px; max-width: 80ch; }
+.printonly { display: none; }
+.printlens { display: grid; gap: 8px; break-before: page; }
+.printlens h2 { font-family: var(--f-display); font-weight: 600; font-size: 20px; margin: 0; }
+.printlens p { margin: 0; color: var(--muted); max-width: 90ch; }
+.printlens svg { display: block; width: 100%; height: auto; border: 1px solid var(--rule); }
+@media print {
+  .screenonly { display: none !important; }
+  .printonly { display: grid; gap: 18px; }
+  body { background: #fff; }
+  .wrap { max-width: none; padding-block: 0; }
+  section, .tablewrap { break-inside: avoid; }
+  table { min-width: 0; }
+}
+/* svg */
+.n rect { fill: var(--node); stroke: var(--node-edge); stroke-width: 1.2; }
+.n text { fill: var(--ink); font-family: var(--f-body); font-size: 13px; font-weight: 600; }
+.n text.cls { fill: var(--muted); font-family: var(--f-mono); font-size: 10.5px; font-weight: 400; }
+.n.anchor rect { fill: var(--anchor); stroke: var(--anchor); }
+.n.anchor text { fill: var(--anchor-ink); }
+.n.anchor text.cls { fill: var(--anchor-ink); opacity: .75; }
+.gate rect { fill: var(--board); stroke: var(--node-edge); stroke-width: 1.6; }
+.gate text { fill: var(--ink); font-family: var(--f-body); font-size: 14px; font-weight: 600; text-anchor: middle; }
+.gate text.cls { fill: var(--muted); font-family: var(--f-mono); font-size: 10.5px; font-weight: 400; }
+.gate text.step { font-size: 13px; font-weight: 400; }
+.gate line { stroke: var(--rule); stroke-width: 1; }
+.e path.line { fill: none; stroke-width: 2.2; transition: stroke .2s, opacity .2s; }
+.e.sel path.line { stroke-width: 3.6; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; pointer-events: stroke; }
+.band { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; fill: var(--muted); }
+.zone { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; fill: var(--ink); font-weight: 600; }
+.bandrule { stroke: var(--rule); stroke-width: 1; stroke-dasharray: 2 4; }
+@media (prefers-reduced-motion: reduce) { .e path.line { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">On-prem · Azure → Dynatrace → ServiceNow CMDB · CSDM v5 service model <span class="tag">out of the box · no platform code</span></div>
+    <h1>Smartscape to CSDM</h1>
+    <p class="thesis">What the Service Graph Connector for Observability - Dynatrace SaaS 1.2.0 writes into the CMDB from a Dynatrace 3rd-generation tenant, and how the CSDM v5 service model is joined to it by configuration. Nothing on the platform side is scripted: platform features, connector configuration and a naming convention at the source; the application asserts its key as OpenTelemetry resource attributes. Every line is a fact from the connector's own query and transform map, from its runs against a two-host estate, or from a test of the tenant. Switch views to follow one kind of service through the chain.</p>
+  </header>
+
+  <div class="lenses screenonly" role="group" aria-label="View">
+    <button class="lens" data-lens="oneagent" style="--c: var(--lens-saas)"><span class="dot"></span>OneAgent service</button>
+    <button class="lens" data-lens="otel" style="--c: var(--lens-classic)"><span class="dot"></span>OpenTelemetry service</button>
+    <button class="lens" data-lens="edge" style="--c: var(--lens-bridge)"><span class="dot"></span>Service model, tags, cloud</button>
+    <button class="lens" data-lens="event" style="--c: var(--lens-incident)"><span class="dot"></span>Event path · TBD</button>
+    <label class="toggle" for="conflicts"><input type="checkbox" id="conflicts"> Show the gaps only</label>
+  </div>
+
+  <div class="legend" aria-label="Legend">
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--lens-saas)" stroke-width="2.4"/></svg>written by the connector</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--lens-saas)" stroke-width="2.4" stroke-dasharray="12 3"/></svg>maintained in the CMDB</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--lens-saas)" stroke-width="2.4" stroke-dasharray="4 3"/></svg>kept by query</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--muted)" stroke-width="2.4"/></svg>monitored by Dynatrace</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--muted)" stroke-width="2" stroke-dasharray="2 4"/></svg>present, not used by this view</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--skip)" stroke-width="2.4" stroke-dasharray="9 4"/></svg>gap: fetched or expected, not written</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--faint)" stroke-width="2"/></svg>outside this view</span>
+  </div>
+  <div class="legend" aria-label="Kinds of line">
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--ink)" stroke-width="2.2"/><path d="M24,1 L33,5 L24,9 z" fill="var(--ink)"/></svg>CMDB relationship</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="24" y2="5" stroke="var(--ink)" stroke-width="2.2"/><path d="M24,1 L33,5 L24,9 z" fill="none" stroke="var(--ink)" stroke-width="1.6"/></svg>record written from the node</span>
+    <span><svg viewBox="0 0 34 10"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--ink)" stroke-width="2.2"/><circle cx="29" cy="5" r="3.5" fill="var(--ink)"/></svg>monitoring link</span>
+  </div>
+
+  <div class="stage screenonly">
+    <div class="board">
+      <svg id="map" viewBox="0 0 1330 720" role="img" aria-label="SaaS connector chain into the CSDM v5 service model"></svg>
+    </div>
+    <aside class="panel" aria-live="polite">
+      <div>
+        <div class="eyebrow" id="p-lens">View</div>
+        <p class="lensdesc" id="p-lensdesc"></p>
+      </div>
+      <div style="display:grid; gap:10px">
+        <h2 id="p-title">Select a line</h2>
+        <div id="p-state"></div>
+        <div class="rel" id="p-rel"></div>
+        <dl class="kv">
+          <dt>Mechanism</dt><dd id="p-writer"></dd>
+          <dt>This view</dt><dd id="p-note"></dd>
+        </dl>
+      </div>
+    </aside>
+  </div>
+
+  <div class="printonly" id="printboards" aria-hidden="true"></div>
+
+  <section>
+    <h2>How the connector populates the CMDB</h2>
+    <div class="principles">
+      <div class="principle"><div class="num">01</div><h3>The connector reads Smartscape through a time window</h3><p>Each data source is one <code>smartscapeNodes</code> query. The first run covers a configurable number of days, later runs the time since the last run. A node alive at any moment in the window is imported, stale identities included; retirement follows after the configured number of days without a sighting.</p></div>
+      <div class="principle"><div class="num">02</div><h3>The chain written depends on how the service was detected</h3><p>A OneAgent service carries edges to its process and to the services it calls. An OpenTelemetry service carries an edge to its host only. The shipped transform map has no host entity; one conditional class on that edge closes the gap.</p></div>
+      <div class="principle"><div class="num">03</div><h3>Identity is the Smartscape id with a connection prefix</h3><p>Every CI gets a <code>sys_object_source</code> row keyed <code>&lt;alias sys_id&gt;|||&lt;Smartscape id&gt;</code>. The Event Management push connector builds the same key for 3rd-generation events, so event binding depends on this connector having run.</p></div>
+      <div class="principle"><div class="num">04</div><h3>Every process becomes a CI</h3><p>One application CI per uncontainerised process with an executable path, OneAgent's own processes included, each related to its host. Classification comes from Discovery's process classifiers: Gunicorn, Nginx and PostgreSQL get typed classes.</p></div>
+      <div class="principle"><div class="num">05</div><h3>The service model is joined by configuration</h3><p>The detection rule's name template carries <code>service.namespace</code> and <code>deployment.environment</code> into the service name. The Service map, extended in IntegrationHub ETL, splits the name, looks up the Business Application and the offering, and writes the CSDM relationships on every import. A Dynamic CI Group per technical offering holds the hosts by query.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Preconditions</h2>
+    <div class="principles">
+      <div class="principle"><div class="num">P0</div><h3>Out of the box, no platform code</h3><p>Every mechanism on the platform side is a documented platform feature: the detection rule's name template, the connector's Service map extended in IntegrationHub ETL, Dynamic CI Groups over CMDB groups, CI relationships. No business rule, no scheduled script, no custom table. The application contributes its key as resource attributes in its deployment configuration. Scripted alternatives were written, recorded and not used.</p></div>
+      <div class="principle"><div class="num">P1</div><h3>Green field</h3><p>The CMDB held nothing but the connector's own CIs and the hand-built CSDM v5 model. Every relationship above is the first one its CIs ever had. A CMDB already fed by several integrations starts with reconciliation and precedence, not with the bridge.</p></div>
+      <div class="principle"><div class="num">P2</div><h3>One source per class</h3><p>The connector is the only discovery source for hosts, processes and services, so IRE has nothing to arbitrate. Add a second source for the same classes and the identification rules, not the map, decide who wins.</p></div>
+      <div class="principle"><div class="num">P3</div><h3>The naming contract holds on both sides</h3><p>Service name <code>&lt;namespace&gt; &lt;service&gt; &lt;environment&gt;</code>, offering name <code>&lt;namespace&gt; &lt;environment&gt;</code>. A lookup that finds no row writes nothing and reports nothing; watching that silence is the operational cost.</p></div>
+      <div class="principle"><div class="num">P4</div><h3>Two hosts, three applications</h3><p>Small enough to read every row. The mechanisms scale by configuration; the evidence does not claim to.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the estate showed</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Smartscape</th><th>In the CMDB</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>HOST</td><td><code>cmdb_ci_linux_server</code></td><td>Class by OS; the OS as <code>cmdb_ci_spkg</code> with a software instance; cloud resource tags as <code>cmdb_key_value</code> on the cloud host</td></tr>
+          <tr><td>PROCESS, uncontainerised, with an executable path</td><td><code>cmdb_ci_appl</code> and typed subclasses</td><td>Two incarnations of one worker, same command line, identified as one CI named after the node staged last</td></tr>
+          <tr><td>SERVICE</td><td><code>cmdb_ci_service_calculated</code>, named <code>&lt;name&gt; - &lt;id&gt;</code></td><td>Several identities of one OpenTelemetry service, the stale ones imported because they fell inside the first window; one OneAgent worker</td></tr>
+          <tr><td>FRONTEND</td><td><code>cmdb_ci_service_calculated</code></td><td>The tenant's default application, named by its classic id, no service edges</td></tr>
+          <tr><td class="hot">Database and opaque services</td><td class="hot">none</td><td>Not Smartscape service nodes; they exist in the classic entity model only, so the worker's calls to them have no target</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>The Service transform map, as shipped and as extended</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Entity</th><th>Target class</th><th>Condition</th><th>Relationship written</th></tr></thead>
+        <tbody>
+          <tr><td>Calculated Application Service 1</td><td><code>cmdb_ci_service_calculated</code></td><td><code>object.type=SERVICE</code></td><td>Parent of the runtime relationships below</td></tr>
+          <tr><td>Application 1</td><td><code>cmdb_ci_appl</code>, dependent on container or hardware</td><td><code>edges.type=runs_on^edges.target_type=PROCESS</code></td><td><code>Runs on::Runs</code> if <code>relationships LIKE PROCESS</code></td></tr>
+          <tr><td>Configuration Item 1</td><td><code>cmdb_ci</code></td><td><code>edges.type=calls^edges.target_type=SERVICE^service_to_service_relation=true</code></td><td><code>Depends on::Used by</code> if <code>relationships LIKE SERVICE</code></td></tr>
+          <tr><td>Server 1 <span class="hot">(extension)</span></td><td><code>cmdb_ci_server</code>, native key only</td><td><code>edges.type=runs_on^edges.target_type=HOST</code></td><td><code>Runs on::Runs</code> if <code>relationships LIKE HOST</code></td></tr>
+          <tr><td>Business Application 1 <span class="hot">(extension)</span></td><td><code>cmdb_ci_business_app</code>, Table Lookup on the namespace</td><td><code>environment</code> and lookup result not empty</td><td>Business Application <code>Uses::Used by</code> the calculated service</td></tr>
+          <tr><td>Offering 1 <span class="hot">(extension)</span></td><td><code>service_offering</code>, Table Lookup on <code>&lt;namespace&gt; &lt;environment&gt;</code></td><td>lookup result not empty</td><td>Offering <code>Depends on::Used by</code> the calculated service</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Where the SaaS connector departs from the classic-connector guides</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>The integration guides written for the classic connector say</th><th>The SaaS connector shows</th></tr></thead>
+        <tbody>
+          <tr><td>Services come from OneAgent-instrumented processes</td><td>OpenTelemetry-ingested services carry a host edge only</td></tr>
+          <tr><td>Direct service → host is the fallback path on SaaS</td><td>The shipped map has no host entity; the fallback is an extension of the map</td></tr>
+          <tr><td>The SaaS chain names PROCESS_GROUP_INSTANCE</td><td>Smartscape holds PROCESS; the CI is one per process, keyed on the PROCESS id</td></tr>
+          <tr><td>The Business Application key travels as a tag rule</td><td>No tag rules on a 3rd-generation tenant; cloud host tags arrive as key-value records. The key lives on the spans: the Smartscape service node carries neither tags nor attributes, and a manual tag set in the classic UI does not reach it. Closed by convention: the detection rule's name template carries the key into the service name, and the extended Service map writes the relationships</td></tr>
+          <tr><td>The cloud anchor is a VM entity</td><td>The host carries the cloud resource id; the VM resource is a Smartscape node outside every data source; no VM CI exists to link</td></tr>
+          <tr><td>A stale service is a staleness case to handle</td><td>Stale services are imported whenever they fall inside the window; retirement follows after the configured number of days</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Glossary</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Term</th><th>Meaning here</th></tr></thead>
+        <tbody>
+          <tr><td>ledger, onprem-01, cloud-vm-01</td><td>Substitute names for the estate: <code>ledger</code> a Python web application, <code>ledger-worker</code> its Node.js worker, <code>ledgerdb</code> its PostgreSQL database; <code>onprem-01</code> the on-premises host, <code>cloud-vm-01</code> the Azure VM</td></tr>
+          <tr><td>Smartscape</td><td>The Dynatrace 3rd-generation topology: nodes (HOST, PROCESS, SERVICE, FRONTEND, cloud resources) and edges (<code>runs_on</code>, <code>calls</code>) in Grail, queried with DQL</td></tr>
+          <tr><td>Service Graph Connector</td><td>The ServiceNow Store application that reads Smartscape per node type, stages each node as JSON and writes CIs and relationships through IRE</td></tr>
+          <tr><td>Data source, import set</td><td>One Load-by-Script data source per node type; each run stages rows into an import set, then the transform map runs</td></tr>
+          <tr><td>IntegrationHub ETL, Robust Transform Engine</td><td>The declarative transform layer: prepare operations (Split, Concatenation, Table Lookup), conditional classes, conditional relationships</td></tr>
+          <tr><td>IRE, identification rule</td><td>The Identification and Reconciliation Engine: matches a payload to an existing CI by the class's identification rule, creates or updates, records the source</td></tr>
+          <tr><td>Native key, object source</td><td>The source's own id for a record, stored in <code>sys_object_source</code> as <code>&lt;alias sys_id&gt;|||&lt;Smartscape id&gt;</code>; an entity mapping only a native key resolves an existing CI without touching its attributes</td></tr>
+          <tr><td>Calculated application service</td><td>The CI class the connector uses for a Smartscape service: <code>cmdb_ci_service_calculated</code>, a service instance populated by an integration</td></tr>
+          <tr><td>CSDM v5</td><td>ServiceNow's Common Service Data Model: Business Application, Business Service and its Business Service Offerings (BSO), Technology Management Service and its Technical Service Offerings (TSO), service instance, Dynamic CI Group. The board shows the three tables above the service instance as one simplified box, Services and Offerings each holding their business and technical classification; the connector writes to the Business Application and the BSO, the TSO holds the Dynamic CI Group, and the two parent services receive nothing</td></tr>
+          <tr><td>Dynamic CI Group, CMDB group</td><td>A CI in <code>cmdb_ci_query_based_service</code> whose members come from a CMDB group; the group is populated by an encoded query over a class</td></tr>
+          <tr><td>OneAgent service, OpenTelemetry service</td><td>How Dynatrace came to know the service, not where OneAgent runs. OneAgent is on every host; a service is "OneAgent" when the agent deep-monitors its process (Java, .NET, Node.js, Go, PHP), "OpenTelemetry" when the application exports spans to the agent's local OTLP endpoint (Python here). The chain the connector writes differs between the two</td></tr>
+          <tr><td>Detection rule, name template</td><td>Dynatrace service detection settings: required attributes make a service's identity; the name template formats its name</td></tr>
+          <tr><td>Resource attributes</td><td>OpenTelemetry attributes on every span from an application, here <code>service.namespace</code> and <code>deployment.environment</code></td></tr>
+          <tr><td>Davis problem, push connector</td><td>A Dynatrace problem event; the Event Management connector that accepts it at an instance endpoint and binds it to a CI by the object-source key</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Forthcoming</h2>
+    <p class="thesis">This page grows with the proof of concept. Insights are forthcoming; a date is not.</p>
+  </section>
+
+  <footer>Built from the connector's data source script and DQL, its Service ETL map as shipped and as extended, the import sets of its runs, and the CMDB exports of a proof of concept on a two-host estate: CIs, relationships, object sources, staging rows, Smartscape nodes and edges. Application, service and host names are substitutes. Version 2.0.<br>Concept and direction by Victor Andreev, developed in collaboration with Claude (Anthropic). Licensed CC BY 4.0.</footer>
+</div>
+
+<script>
+(function () {
+  var W = 214, H = 62;
+  var nodes = {
+    esApp:  { x: 30,  y: 150, t: "Web application", c: "Python · OpenTelemetry spans" },
+    esWrk:  { x: 30,  y: 240, t: "Worker", c: "Node.js · OneAgent deep monitoring" },
+    esOn:   { x: 30,  y: 430, t: "On-premises host", c: "Linux · OneAgent Full-Stack" },
+    esAz:   { x: 30,  y: 520, t: "Azure VM", c: "Linux · OneAgent · Clouds integration" },
+    dtFe:   { x: 280, y: 60,  t: "Frontend", c: "My_web_application · default" },
+    dtOtel: { x: 280, y: 150, t: "Service · OpenTelemetry", c: "ledger · stale identities included" },
+    dtOa:   { x: 280, y: 240, t: "Service · OneAgent", c: "ledger-worker · Node.js" },
+    dtProc: { x: 280, y: 340, t: "Process", c: "uncontainerised, with an executable path" },
+    dtHost: { x: 280, y: 430, t: "Host", c: "onprem-01 · cloud-vm-01" },
+    dtVm:   { x: 280, y: 520, t: "Cloud VM resource", c: "Smartscape node, no data source" },
+    owner:  { x: 790, y: 60,  t: "Service model · simplified", c: "Business Application · Services · Offerings" },
+    grp:    { x: 1110, y: 60, t: "Dynamic CI Group", c: "one per technical offering" },
+    si1:    { x: 790, y: 150, t: "Calculated Application Service", c: "ledger", cls: "anchor" },
+    si2:    { x: 790, y: 240, t: "Calculated Application Service", c: "ledger-worker", cls: "anchor" },
+    proc:   { x: 790, y: 340, t: "Application CI", c: "typed where classified" },
+    host:   { x: 790, y: 430, t: "Linux Server", c: "class by OS" },
+    tags:   { x: 1110, y: 430, t: "Key-value records", c: "application · environment · project" },
+    sw:     { x: 1110, y: 520, t: "Software package", c: "Arch Linux · Ubuntu" },
+    miss:   { x: 1110, y: 240, t: "Not imported", c: "ledgerdb · uvicorn on port 8080" },
+    os:     { x: 1110, y: 150, t: "Object source", c: "alias|||Smartscape id" },
+    evtTbd: { x: 530, y: 620, t: "Event path · TBD", c: "Davis problem → push connector → CI binding" }
+  };
+  var gate = { x: 530, y: 92, w: 214, h: 470 };
+  // states: walk (written by the connector), model (maintained in the CMDB), design (read in the product, TBD), idle (present, not used by the view), gap (fetched or expected, not written), off.
+  var edges = [
+    { id: "x1", k: "mon", a: "esApp", b: "dtOtel", r: "The web application exports OpenTelemetry spans to OneAgent", w: "OTLP export to the OneAgent local endpoint; service.namespace and deployment.environment as resource attributes; a service detection rule on those attributes",
+      s: { oneagent: ["src", "The service the worker calls."], otel: ["src", "Runs in production on the on-premises host and in staging on the Azure VM, same code, different deployment.environment. The attributes are asserted by the application, not by the tenant."], edge: ["src", "Monitored through OpenTelemetry; Python is not deep-monitored by OneAgent."], event: ["off", "Not on this path."] } },
+    { id: "x2", k: "mon", a: "esWrk", b: "dtOa", r: "The worker is deep-monitored by OneAgent", w: "OneAgent code module for Node.js; service detection by the agent",
+      s: { oneagent: ["src", "Runs on the Azure VM; calls the web application and a PostgreSQL database on the same VM."], otel: ["off", "Not on this path."], edge: ["off", "Not on this path."], event: ["off", "Not on this path."] } },
+    { id: "x3", k: "mon", a: "esOn", b: "dtHost", r: "The on-premises host runs OneAgent Full-Stack", w: "OneAgent on an unsupported distribution, forced install",
+      s: { oneagent: ["off", "Not on this path."], otel: ["src", "Hosts the production web application behind Nginx and Gunicorn."], edge: ["src", "No cloud resource, no tags."], event: ["off", "Not on this path."] } },
+    { id: "x4", k: "mon", a: "esAz", b: "dtHost", r: "The Azure VM runs OneAgent", w: "OneAgent on a supported distribution; host group per environment",
+      s: { oneagent: ["src", "Hosts the worker, its PostgreSQL database and the staging web application."], otel: ["src", "Hosts the staging web application."], edge: ["src", "Carries the Azure resource tags that become key-value records."], event: ["off", "Not on this path."] } },
+    { id: "x5", k: "mon", a: "esAz", b: "dtVm", r: "The Clouds integration writes the VM as a Smartscape resource node", w: "Azure connection in the Clouds app, Monitoring Reader on the subscription",
+      s: { oneagent: ["off", "Not on this path."], otel: ["off", "Not on this path."], edge: ["src", "Topology only; the node has no data source in the connector."], event: ["off", "Not on this path."] } },
+    { id: "f1", k: "rec", a: "dtFe", b: "si1", bend: -40, r: "Frontend becomes a Calculated Application Service", w: "Frontend data source and transform map",
+      s: { oneagent: ["off", "Not on this path."], otel: ["off", "Not on this path."], edge: ["walk", "One CI, named by id_classic: the Smartscape node is a FRONTEND id, the classic id an APPLICATION id, the one type in the chain whose id did not survive the classic transition. The frontend query joins 'calls' edges to services; the default frontend has none, so nothing links it to a service."], event: ["off", "Not on this path."] } },
+    { id: "s1", k: "rec", a: "dtOtel", b: "si1", r: "OpenTelemetry service becomes a Calculated Application Service", w: "Service data source: smartscapeNodes SERVICE inside the window; Service transform map",
+      s: { oneagent: ["idle", "Target of the worker's calls edge."], otel: ["walk", "Five CIs for one application: the production service, named '<namespace> <service> <environment> - SERVICE-<id>' by the detection rule's name template; the staging service, renamed when it next sends spans; and three stale identities from a change of required detection attributes, imported because they fell inside the first window."], edge: ["off", "Not on this path."], event: ["idle", "A binding target once an event arrives."] } },
+    { id: "s2", k: "rec", a: "dtOa", b: "si2", r: "OneAgent service becomes a Calculated Application Service", w: "Service data source and transform map",
+      s: { oneagent: ["walk", "One CI. In Smartscape only while it handles requests: present in a multi-day window, absent in a short one."], otel: ["off", "Not on this path."], edge: ["off", "Not on this path."], event: ["idle", "A binding target once an event arrives."] } },
+    { id: "d1", k: "rel", a: "si2", b: "si1", r: "Service depends on the service it calls", w: "Service map: Configuration Item 1 on the calls edge, Depends on::Used by",
+      s: { oneagent: ["walk", "The worker's 'calls' edge to the web service becomes 'Depends on::Used by'."], otel: ["walk", "The web service is the child of this relationship."], edge: ["off", "Not on this path."], event: ["idle", "Impact path from one service to the other."] } },
+    { id: "c1", k: "rel", a: "si2", b: "proc", r: "Service runs on its process", w: "Service map: Application 1 on the runs_on edge to a PROCESS, native key only",
+      s: { oneagent: ["walk", "Written only when the edge names the process id the object-source row holds. Two incarnations of the worker with one command line are identified as one CI keyed on the later id; while the edge named the earlier one, the child lookup missed. Once the stale id left the window and the service was alive in it, the relationship was written."], otel: ["off", "No process edge exists for an OpenTelemetry service."], edge: ["off", "Not on this path."], event: ["off", "Not on this path."] } },
+    { id: "c2", k: "rel", a: "si1", b: "host", bend: 60, r: "Service runs on its host", w: "Service map extension: Server 1 on the runs_on edge to a HOST, native key only, Runs on::Runs if relationships LIKE HOST",
+      s: { oneagent: ["walk", "The worker to its cloud host, written by the extension; the shipped map has no host entity."], otel: ["walk", "The only edge an OpenTelemetry service has. Smartscape gives every service a dynamic runs_on to its host, and on a cloud host a second runs_on to the VM resource. The extension reads the host edge: a Server class with the edge's native key finds the existing Linux Server through its object-source row and writes Runs on::Runs for every service in one import. The shipped map reads neither edge."], edge: ["off", "Not on this path."], event: ["off", "Not on this path."] } },
+    { id: "p1", k: "rec", a: "dtProc", b: "proc", r: "Process becomes an Application CI", w: "Processes data source: smartscapeNodes PROCESS, containerized false; Processes transform map; cmdb_ci_appl identification on command line",
+      s: { oneagent: ["walk", "Two incarnations of the worker, same command line, become one CI."], otel: ["walk", "The uvicorn processes on both hosts exist as CIs, unrelated to the OpenTelemetry services above them."], edge: ["idle", "Gunicorn, Nginx and PostgreSQL get typed classes from the process classifiers."], event: ["off", "Not on this path."] } },
+    { id: "c3", k: "rel", a: "proc", b: "host", r: "Application CI runs on Linux Server", w: "Processes transform map, Runs on::Runs",
+      s: { oneagent: ["walk", "Every process CI related to its host, OneAgent's own processes included."], otel: ["walk", "The uvicorn CIs are related to their hosts; the services above them are not related to the uvicorn CIs."], edge: ["idle", "Written for every process CI."], event: ["idle", "Impact path from a host to the processes on it."] } },
+    { id: "h1", k: "rec", a: "dtHost", b: "host", r: "Host becomes a Linux Server", w: "Host data source: smartscapeNodes HOST; Host transform map, class by OS",
+      s: { oneagent: ["walk", "Two CIs. The cloud host carries the cloud resource id from the query."], otel: ["walk", "Two CIs."], edge: ["walk", "Two CIs; the OS goes to a software package with a software instance each."], event: ["idle", "A binding target for host problems."] } },
+    { id: "t1", k: "rec", a: "host", b: "tags", r: "Cloud resource tags land as key-value records on the host", w: "Host transform map, Key Value entity",
+      s: { oneagent: ["off", "Not on this path."], otel: ["off", "Not on this path."], edge: ["walk", "application, environment and project tags from the cloud resource. A Business Application key arriving on a host with no bridge code. The on-premises host has no tags and gets none."], event: ["off", "Not on this path."] } },
+    { id: "w1", k: "rec", a: "host", b: "sw", r: "The operating system lands as a software package and instance", w: "Host transform map, software package and instance entities",
+      s: { oneagent: ["off", "Not on this path."], otel: ["off", "Not on this path."], edge: ["walk", "Keyed '<OS>_:::_<version>'."], event: ["off", "Not on this path."] } },
+    { id: "v1", k: "rel", a: "dtVm", b: "host", bend: -40, r: "The cloud VM resource would link to the server", w: "Connector data sources; Store listing", conflict: 1,
+      s: { oneagent: ["off", "Not on this path."], otel: ["off", "Not on this path."], edge: ["gap", "The VM is a Smartscape node no data source reads. The listing says an existing VM CI is linked to its server by object id; where no VM CI exists, nothing is linked. The host keeps the cloud resource id."], event: ["off", "Not on this path."] } },
+    { id: "m1", k: "rec", a: "dtOa", b: "miss", bend: -60, r: "Database and opaque services are not Smartscape service nodes", w: "The SERVICE query returns neither", conflict: 1,
+      s: { oneagent: ["gap", "The PostgreSQL database service and the server-side opaque service exist in the classic entity model only. The SaaS connector cannot import them, so the worker's calls to them have no target."], otel: ["off", "Not on this path."], edge: ["off", "Not on this path."], event: ["off", "Not on this path."] } },
+    { id: "o1", k: "rec", a: "si1", b: "os", r: "Every CI is keyed by object source", w: "IRE object source: <alias sys_id>|||<Smartscape id>; a CI folded from two nodes carries one row per node",
+      s: { oneagent: ["idle", "Key <alias sys_id>|||SERVICE-<id>."], otel: ["idle", "One key per service identity; stale ones keep theirs until retirement."], edge: ["idle", "Hosts, processes, services, frontends, tags, software: all keyed the same way."], event: ["walk", "The key the push connector would resolve: alias sys_id, three pipes, Smartscape id. The event path itself is TBD."] } },
+    { id: "b1", k: "rel", a: "owner", b: "si1", r: "Business Application and Business Service Offering relate to the Service Instance", w: "Service map extension: Split and Concatenation on the service name, Table Lookups on cmdb_ci_business_app.name and service_offering.name, Uses::Used by and Depends on::Used by",
+      s: { oneagent: ["off", "Not on this path."], otel: ["walk", "Written for the production service, whose name carries namespace and environment. The staging service follows once renamed by the template. A service without a namespace gets no business edge."], edge: ["walk", "The box holds three tables: cmdb_ci_business_app; cmdb_ci_service (Business Service, Technology Management Service); service_offering (Business Service Offering, Technical Service Offering), told apart by Service classification. Two of them take relationships from the connector: the Business Application (Uses::Used by) and the Business Service Offering (Depends on::Used by). The Business Service and the Technology Management Service sit above their offerings and receive nothing from the connector. The naming contract is the join: service name = '<namespace> <service> <environment>', business offering name = '<namespace> <environment>'. The map looks both up by name and writes the two relationships on every import."], event: ["off", "Not started."] } },
+    { id: "g1", k: "rel", a: "owner", b: "grp", r: "Technical Service Offering contains the Dynamic CI Group", w: "CI relationship Contains::Contained by, one per technical offering, maintained in the CMDB",
+      s: { oneagent: ["off", "Not on this path."], otel: ["off", "Not on this path."], edge: ["model", "One Dynamic CI Group per technical offering, Service classification Technical Service, created from the Dynamic CI Groups module on a CMDB group."], event: ["off", "Not on this path."] } },
+    { id: "g2", k: "rel", a: "grp", b: "host", bend: 80, r: "Dynamic CI Group holds the hosts by query", w: "CMDB group with an encoded query over cmdb_ci_linux_server on attributes the connector writes",
+      s: { oneagent: ["off", "Not on this path."], otel: ["off", "Not on this path."], edge: ["query", "Membership follows the query, not a relationship. The Dynatrace host group does not reach the CMDB; the query uses discovery source and manufacturer, in production location, cloud account or a key-value row."], event: ["off", "Not on this path."] } }
+  ];
+  var lensInfo = {
+    oneagent: ["OneAgent service", "A service OneAgent detected by deep-monitoring its process: here the Node.js worker on the Azure VM. OneAgent runs on both hosts; the view is named after how the service was detected, not where the agent is. The Python web application on the on-premises host is not deep-monitored and appears in the OpenTelemetry view."],
+    otel: ["OpenTelemetry service", "A service Dynatrace knows only from the spans the application exports to OneAgent: here the Python web application, on both hosts. It has a host edge only. The connector writes the CI; the extended map writes the host and the business edges. Partially complete: the staging service and the event binding are TBD."],
+    edge: ["Service model, tags, cloud", "The CSDM v5 service model and how it is joined by configuration, plus the frontend, the operating system, the cloud tags on the host, and the VM resource the connector cannot link."],
+    event: ["Event path · TBD", "Not built. The binding key exists on every CI the connector wrote; the workflow and the push connector instance do not. Read from the listener script, unverified."]
+  };
+  var svgNS = "http://www.w3.org/2000/svg";
+  var state = { lens: "oneagent", sel: "c1", conflicts: false };
+  try { var saved = localStorage.getItem("sgc-saas-lens"); if (saved && lensInfo[saved]) state.lens = saved; } catch (e) {}
+  var lensColor = { oneagent: "--lens-saas", otel: "--lens-classic", edge: "--lens-bridge", event: "--lens-incident" };
+  function el(tag, attrs, parent) { var x = document.createElementNS(svgNS, tag); for (var k in attrs) x.setAttribute(k, attrs[k]); if (parent) parent.appendChild(x); return x; }
+  function center(n) { return { x: n.x + W / 2, y: n.y + H / 2 }; }
+  function clip(n, to) {
+    var c = center(n), dx = to.x - c.x, dy = to.y - c.y;
+    var sx = dx === 0 ? Infinity : (W / 2 + 4) / Math.abs(dx), sy = dy === 0 ? Infinity : (H / 2 + 4) / Math.abs(dy);
+    var k = Math.min(sx, sy); return { x: c.x + dx * k, y: c.y + dy * k };
+  }
+  function cssVar(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function fitText(t, str, perChar) {
+    t.textContent = str;
+    if (str.length * perChar > W - 24) { t.setAttribute("textLength", W - 24); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); }
+  }
+  function wrap(str, max, lines) {
+    var words = str.split(" "), out = [], cur = "";
+    words.forEach(function (w) {
+      if (cur && (cur + " " + w).length > max && out.length < lines - 1) { out.push(cur); cur = w; }
+      else { cur = cur ? cur + " " + w : w; }
+    });
+    if (cur) out.push(cur);
+    return out;
+  }
+  function makeBoard(svg, prefix, interactive) {
+    var defs = el("defs", {}, svg), gB = el("g", {}, svg), gE = el("g", {}, svg), gN = el("g", {}, svg);
+    var board = { svg: svg, prefix: prefix, defs: defs, lines: {}, groups: {} };
+    ["walk", "model", "query", "src", "idle", "gap", "faint"].forEach(function (k) {
+      ["rel", "rec", "mon"].forEach(function (kind) {
+        var m = el("marker", { id: prefix + "m-" + k + "-" + kind, viewBox: "0 0 10 10", refX: kind === "mon" ? "7" : "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" }, defs);
+        if (kind === "rel") el("path", { d: "M0,0 L10,5 L0,10 z", "class": "mk-" + k }, m);
+        else if (kind === "rec") el("path", { d: "M1,1 L9,5 L1,9 z", "class": "mk-" + k + " hollow", fill: "var(--board)", "stroke-width": "1.6" }, m);
+        else el("circle", { cx: "5", cy: "5", r: "3.2", "class": "mk-" + k }, m);
+      });
+    });
+    [["ESTATE · ON-PREM · AZURE", 30], ["DYNATRACE · SMARTSCAPE", 280], ["SERVICE GRAPH CONNECTOR", 530], ["SERVICENOW · CMDB", 790]].forEach(function (z) {
+      el("text", { x: z[1], y: 26, "class": "zone" }, gB).textContent = z[0];
+    });
+    el("text", { x: 790, y: 134, "class": "band" }, gB).textContent = "CSDM v5 SERVICE MODEL · OWNED IN THE CMDB · JOINED BY CONFIGURATION";
+    el("line", { x1: 20, y1: 139, x2: 1310, y2: 139, "class": "bandrule" }, gB);
+    el("text", { x: 280, y: 147, "class": "band" }, gB).textContent = "RUNTIME CHAIN · CONNECTOR";
+    el("line", { x1: 20, y1: 585, x2: 1310, y2: 585, "class": "bandrule" }, gB);
+    el("text", { x: 280, y: 602, "class": "band" }, gB).textContent = "EVENT PATH · TBD";
+    edges.forEach(function (e) {
+      var A = nodes[e.a], B = nodes[e.b], ca = center(A), cb = center(B);
+      var mx = (ca.x + cb.x) / 2, my = (ca.y + cb.y) / 2;
+      var bend = e.bend || 0, nx = -(cb.y - ca.y), ny = cb.x - ca.x, len = Math.hypot(nx, ny) || 1;
+      var ctrl = { x: mx + nx / len * bend, y: my + ny / len * bend };
+      var p1 = clip(A, bend ? ctrl : cb), p2 = clip(B, bend ? ctrl : ca);
+      var d = bend ? "M" + p1.x + "," + p1.y + " Q" + ctrl.x + "," + ctrl.y + " " + p2.x + "," + p2.y : "M" + p1.x + "," + p1.y + " L" + p2.x + "," + p2.y;
+      var g = el("g", { "class": "e" }, gE);
+      board.groups[e.id] = g;
+      board.lines[e.id] = el("path", { d: d, "class": "line" }, g);
+      if (interactive) {
+        var hit = el("path", { d: d, "class": "edge-hit", tabindex: "0", role: "button", "aria-label": e.r }, g);
+        hit.addEventListener("click", function () { select(e.id); });
+        hit.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(e.id); } });
+      }
+    });
+    var gg = el("g", { "class": "gate", transform: "translate(" + gate.x + "," + gate.y + ")" }, gN), cx = gate.w / 2;
+    el("rect", { width: gate.w, height: gate.h, rx: 4 }, gg);
+    el("text", { x: cx, y: 30 }, gg).textContent = "SGC for Dynatrace SaaS";
+    el("text", { x: cx, y: 47, "class": "cls" }, gg).textContent = "1.2.0 · scheduled import chain";
+    [["DQL on Smartscape", 130], ["Stage as JSON", 215], ["ETL map", 300], ["Identify and reconcile", 385]].forEach(function (s, i) {
+      el("line", { x1: 24, y1: s[1] - 42, x2: gate.w - 24, y2: s[1] - 42 }, gg);
+      el("text", { x: cx, y: s[1] - 6, "class": "cls" }, gg).textContent = "0" + (i + 1);
+      el("text", { x: cx, y: s[1] + 12, "class": "step" }, gg).textContent = s[0];
+    });
+    Object.keys(nodes).forEach(function (k) {
+      var n = nodes[k], g = el("g", { "class": "n " + (n.cls || ""), transform: "translate(" + n.x + "," + n.y + ")" }, gN);
+      el("rect", { width: W, height: H, rx: 4 }, g);
+      fitText(el("text", { x: 12, y: 20 }, g), n.t, 7.1);
+      var lines = wrap(n.c, Math.floor((W - 24) / 6.4), 2);
+      lines.forEach(function (ln, i) { fitText(el("text", { x: 12, y: 36 + i * 13, "class": "cls" }, g), ln, 6.4); });
+    });
+    return board;
+  }
+  function paintBoard(board, lens, conflicts, sel) {
+    var lc = cssVar(lensColor[lens]), skip = cssVar("--skip"), muted = cssVar("--muted"), faint = cssVar("--faint");
+    var mkc = { walk: lc, model: lc, query: lc, src: muted, idle: muted, gap: skip, faint: faint };
+    Object.keys(mkc).forEach(function (k) {
+      board.defs.querySelectorAll(".mk-" + k).forEach(function (m) {
+        if (m.classList.contains("hollow")) m.setAttribute("stroke", mkc[k]); else m.setAttribute("fill", mkc[k]);
+      });
+    });
+    edges.forEach(function (e) {
+      var st = e.s[lens], kind = st[0], L = board.lines[e.id];
+      var stroke = faint, dash = "", mk = "faint", op = 1;
+      if (kind === "walk") { stroke = lc; mk = "walk"; }
+      else if (kind === "model") { stroke = lc; dash = "12 3"; mk = "model"; }
+      else if (kind === "query") { stroke = lc; dash = "4 3"; mk = "query"; }
+      else if (kind === "src") { stroke = muted; mk = "src"; }
+      else if (kind === "design") { stroke = lc; dash = "7 5"; mk = "walk"; }
+      else if (kind === "idle") { stroke = muted; dash = "2 4"; mk = "idle"; }
+      else if (kind === "gap") { stroke = skip; dash = "9 4"; mk = "gap"; }
+      else { op = .55; }
+      if (conflicts && e.conflict) { stroke = skip; op = 1; if (!dash) dash = "9 4"; mk = "gap"; }
+      else if (conflicts) { op = Math.min(op, .3); }
+      L.setAttribute("stroke", stroke); L.setAttribute("stroke-dasharray", dash); L.style.opacity = op;
+      L.removeAttribute("marker-end"); L.removeAttribute("marker-start");
+      L.setAttribute("marker-end", "url(#" + board.prefix + "m-" + mk + "-" + (e.k || "rel") + ")");
+      board.groups[e.id].classList.toggle("sel", e.id === sel);
+    });
+  }
+  var main = makeBoard(document.getElementById("map"), "main-", true);
+  var printWrap = document.getElementById("printboards"), printBoards = {};
+  Object.keys(lensInfo).forEach(function (k) {
+    var sec = document.createElement("div"); sec.className = "printlens";
+    var h = document.createElement("h2"); h.textContent = "View · " + lensInfo[k][0];
+    var p = document.createElement("p"); p.textContent = lensInfo[k][1];
+    var svg = el("svg", { viewBox: "0 0 1330 720", role: "img", "aria-label": lensInfo[k][0] });
+    sec.appendChild(h); sec.appendChild(p); sec.appendChild(svg); printWrap.appendChild(sec);
+    printBoards[k] = makeBoard(svg, "p-" + k + "-", false);
+  });
+  function paint() {
+    paintBoard(main, state.lens, state.conflicts, state.sel);
+    Object.keys(printBoards).forEach(function (k) { paintBoard(printBoards[k], k, false, null); });
+    var lc = cssVar(lensColor[state.lens]), skip = cssVar("--skip"), muted = cssVar("--muted");
+    document.querySelectorAll(".lens").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.lens === state.lens ? "true" : "false"); });
+    var li = lensInfo[state.lens];
+    document.getElementById("p-lens").textContent = "View · " + li[0];
+    document.getElementById("p-lensdesc").textContent = li[1];
+    var e = edges.filter(function (x) { return x.id === state.sel; })[0];
+    var st = e.s[state.lens];
+    var labels = { walk: "written by the connector", model: "maintained in the CMDB", query: "kept by query", src: "monitored by Dynatrace", design: "read in the product · TBD", idle: "present, not used", gap: "gap: not written", off: "outside this view" };
+    var colors = { walk: lc, model: lc, query: lc, src: muted, design: lc, idle: muted, gap: skip, off: muted };
+    document.getElementById("p-title").textContent = nodes[e.a].t + " → " + nodes[e.b].t;
+    var sEl = document.getElementById("p-state");
+    sEl.innerHTML = ""; var chip = document.createElement("span"); chip.className = "state"; chip.style.color = colors[st[0]];
+    chip.textContent = labels[st[0]]; sEl.appendChild(chip);
+    var kinds = { rel: "CMDB relationship", rec: "record written from the node", mon: "monitoring link" };
+    var kc = document.createElement("span"); kc.className = "state"; kc.style.color = muted; kc.style.marginLeft = "6px"; kc.textContent = kinds[e.k || "rel"]; sEl.appendChild(kc);
+    if (e.conflict) { var c2 = document.createElement("span"); c2.className = "state"; c2.style.color = skip; c2.style.marginLeft = "6px"; c2.textContent = "gap"; sEl.appendChild(c2); }
+    document.getElementById("p-rel").textContent = e.r;
+    document.getElementById("p-writer").textContent = e.w;
+    document.getElementById("p-note").textContent = st[1];
+  }
+  function select(id) { state.sel = id; paint(); }
+  document.querySelectorAll(".lens").forEach(function (b) {
+    b.addEventListener("click", function () { state.lens = b.dataset.lens; try { localStorage.setItem("sgc-saas-lens", state.lens); } catch (e) {} paint(); });
+  });
+  document.getElementById("conflicts").addEventListener("change", function (ev) { state.conflicts = ev.target.checked; paint(); });
+  if (window.matchMedia) { try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint); } catch (e) {} }
+  new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  paint();
+})();
+</script>
+</body>
+</html>
